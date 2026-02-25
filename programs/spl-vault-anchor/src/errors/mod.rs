@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+// anchor error codes start at offset 6000, so 6000 -> CooldownNotElapsed, 6001-> NoPendingWithdrawal and so on..
 #[error_code]
 pub enum VaultError {
     #[msg("Cooldown period has not elapsed. Wait 24hrs after requesting withdrawal.")]
@@ -16,4 +17,7 @@ pub enum VaultError {
 
     #[msg("Vault is paused by admin.")]
     VaultPaused, //in production this should be multisig, single admin key is centralisation risk.
+
+    #[msg("Unauthorized access.")]
+    Unauthorized,   
 }
