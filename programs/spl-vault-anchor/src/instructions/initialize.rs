@@ -56,6 +56,6 @@ pub fn handler(ctx: Context<Initialize>, fee_bps: u16) -> Result<()> {
     vault_state.vault_token_bump = ctx.bumps.vault_token_account;
 
     msg!("Vault initialised. Admin: {}", vault_state.admin);
-    Ok(());
+    Ok(())
 }
 
