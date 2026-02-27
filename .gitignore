@@ -12,4 +12,4 @@ keys.env
 
 # Node / frontend (if using JS/TS)
 node_modules/
-dist/
+dist/Cargo.lock
