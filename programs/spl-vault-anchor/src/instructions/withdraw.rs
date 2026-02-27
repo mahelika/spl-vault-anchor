@@ -52,18 +52,17 @@ pub fn handler(ctx: Context<RequestWithdrawal>, receipt_amount: u64) -> Result<(
     );
 
     //burn receit tokens
-    let admin_key = ctx.accounts.vault_state.admin;
-    let bump = ctx.accounts.vault_state.bump;
-    let seeds: &[&[&[u8]]] = &[&[b"vault_state", admin_key.as_ref(), &[bump]]];
+    // let admin_key = ctx.accounts.vault_state.admin;
+    // let bump = ctx.accounts.vault_state.bump;
+    // let seeds: &[&[&[u8]]] = &[&[b"vault_state", admin_key.as_ref(), &[bump]]];
 
-    let burn_ctx = CpiContext::new_with_signer(
+    let burn_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Burn {
             mint: ctx.accounts.receipt_mint.to_account_info(),
             from: ctx.accounts.user_receipt_account.to_account_info(),
-            authority: ctx.accounts.vault_state.to_account_info(), //??? burn authority = token account owner OR delegate
+            authority: ctx.accounts.user.to_account_info(), //??? burn authority = token account owner OR delegate, fixed it.
         },
-        seeds,
     );
     token::burn(burn_ctx, receipt_amount)?;
 

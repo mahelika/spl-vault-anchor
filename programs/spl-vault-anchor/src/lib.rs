@@ -4,7 +4,12 @@ pub mod errors;
 pub mod instructions;
 pub mod state;
 
-use instructions::{Initialize, Deposit, RequestWithdrawal, Claim};
+// use instructions::{Initialize, Deposit, RequestWithdrawal, Claim};
+
+pub use instructions::initialize::*;
+pub use instructions::deposit::*;
+pub use instructions::withdraw::*;
+pub use instructions::claim::*;
 
 declare_id!("9VfuUehi2JnBgWzN8kSYhyi7vTV3YCaKDmNqN6jpLL4F");
 
