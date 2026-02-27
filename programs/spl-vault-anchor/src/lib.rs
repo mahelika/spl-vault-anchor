@@ -18,18 +18,18 @@ pub mod spl_token_vault {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>, fee_bps: u16) -> Result<()> {
-        instructions::initialize::handler(ctx, fee_bps)
+        instructions::initialize::handle_initialize(ctx, fee_bps)
     }
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
-        instructions::deposit::handler(ctx, amount)
+        instructions::deposit::handle_deposit(ctx, amount)
     }
 
     pub fn request_withdrawal(ctx: Context<RequestWithdrawal>, receipt_amount: u64) -> Result<()> {
-        instructions::withdraw::handler(ctx, receipt_amount)
+        instructions::withdraw::handle_withdraw(ctx, receipt_amount)
     }
 
     pub fn claim(ctx: Context<Claim>) -> Result<()> {
-        instructions::claim::handler(ctx)
+        instructions::claim::handle_claim(ctx)
     }
 }

@@ -44,7 +44,7 @@ pub struct RequestWithdrawal<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<RequestWithdrawal>, receipt_amount: u64) -> Result<()> {
+pub fn handle_withdraw(ctx: Context<RequestWithdrawal>, receipt_amount: u64) -> Result<()> {
     require!(!ctx.accounts.vault_state.is_paused, VaultError::VaultPaused);
     require!(
         ctx.accounts.user_receipt_account.amount >= receipt_amount,

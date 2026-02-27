@@ -48,7 +48,7 @@ pub struct Deposit<'info>{
     pub token_program: Program<'info, Token>,
 }
 
-pub fn handler(ctx: Context<Deposit>, amount:u64) -> Result<()> {
+pub fn handle_deposit(ctx: Context<Deposit>, amount:u64) -> Result<()> {
     require!(!ctx.accounts.vault_state.is_paused, VaultError::VaultPaused);
 
     //1: transfer tokens from user -> vault (CPI) - user is the signer.

@@ -51,7 +51,7 @@ pub struct Claim <'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn handler(ctx: Context<Claim>) -> Result <()> {
+pub fn handle_claim(ctx: Context<Claim>) -> Result <()> {
     let ticket = &ctx.accounts.withdrawal_ticket;
     let now = ctx.accounts.clock.unix_timestamp;
 

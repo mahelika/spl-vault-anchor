@@ -43,7 +43,7 @@ pub struct Initialize<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn handler(ctx: Context<Initialize>, fee_bps: u16) -> Result<()> {
+pub fn handle_initialize(ctx: Context<Initialize>, fee_bps: u16) -> Result<()> {
     let vault_state = &mut ctx.accounts.vault_state;
 
     vault_state.admin = ctx.accounts.admin.key();
