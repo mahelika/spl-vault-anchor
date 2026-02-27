@@ -61,7 +61,7 @@ pub fn handler(ctx: Context<RequestWithdrawal>, receipt_amount: u64) -> Result<(
         Burn {
             mint: ctx.accounts.receipt_mint.to_account_info(),
             from: ctx.accounts.user_receipt_account.to_account_info(),
-            authority: ctx.accounts.vault_state.to_account_info(), //mint authority can mint new tokens AND burn from ANY holder of that mint
+            authority: ctx.accounts.vault_state.to_account_info(), //??? burn authority = token account owner OR delegate
         },
         seeds,
     );
