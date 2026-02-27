@@ -25,7 +25,7 @@ pub struct Deposit<'info>{
     // vault's token account (destination of deposit)
     #[account(
         mut,
-        seeds = [b"vault_tokens", vault_state.key().as_ref()],
+        seeds = [b"vault_token", vault_state.key().as_ref()],
         bump = vault_state.vault_token_bump,
     )]
     pub vault_token_account: Account<'info, TokenAccount>,
@@ -83,7 +83,7 @@ pub fn handler(ctx: Context<Deposit>, amount:u64) -> Result<()> {
         .accounts
         .vault_state
         .total_deposited
-        .checked_add(amount)
+        .checked_add(amount) //u64 can overflow
         .ok_or(VaultError::ArithmeticOverflow)?;
 
     msg!("Deposited {} tokens. Total in vault: {}.", amount, ctx.accounts.vault_state.total_deposited);
