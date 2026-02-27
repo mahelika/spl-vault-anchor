@@ -1,7 +1,15 @@
-.anchor
-.DS_Store
-target
+# Rust / Anchor
+target/
 **/*.rs.bk
-node_modules
-test-ledger
-.yarn
+Cargo.lock
+
+# Secrets
+keys.env
+.env
+
+# MacOS
+.DS_Store
+
+# Node / frontend (if using JS/TS)
+node_modules/
+dist/

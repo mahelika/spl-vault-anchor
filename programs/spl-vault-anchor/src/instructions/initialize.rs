@@ -22,8 +22,8 @@ pub struct Initialize<'info> {
         init,
         payer = admin,
         space = VaultState::LEN,
-        seeds = [b"vault_state", admin.key().as_ref(),
-        bump]
+        seeds = [b"vault_state", admin.key().as_ref()],
+        bump
     )]
     pub vault_state: Account<'info, VaultState>,
 

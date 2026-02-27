@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 // pda seeds: [b"vault_state", admin.key().s_ref()]
 
 #[account]
-#[derive{Default}]
+#[derive(Default)]
 pub struct VaultState {
     pub admin: Pubkey,
     pub accepted_mint: Pubkey,
