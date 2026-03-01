@@ -109,3 +109,93 @@ fn token_balance(svm: &LiteSVM, account: Pubkey) -> u64 {
     TokenAccount::unpack(&data).unwrap().amount
 }
 
+// setup
+
+struct TestContext {
+    svm: LiteSVM,
+    admin: Keypair,
+    user: Keypair,
+    accepted_mint: Pubkey,
+    receipt_mint_kp: Keypair,
+    vault_state: Pubkey,
+    vault_token_account: Pubkey,
+    user_token_ata: Pubkey,
+    user_receipt_ata: Pubkey,
+    admin_token_ata: Pubkey,
+}
+impl TestContext {
+    fn new() -> Self {
+        let mut svm = LiteSVM::new();
+        svm.add_program_from_file(program_id(), "../../target/deploy/spl_vault_anchor.so").unwrap();
+
+        let admin = Keypair::new();
+        let user = Keypair::new();
+        svm.airdrop(&admin.pubkey(), 10_000_000_000).unwrap();
+        svm.airdrop(&user.pubkey(), 10_000_000_000).unwrap();
+
+        // create accepted mint (admin is mint authority)
+        let accepted_mint = create_mint(&mut svm, &admin, 6);
+
+        //receipt mint keupair (passed to initialize)
+        let receipt_mint_kp = Keypair::new();
+
+        // derive pdas
+        let (vault_state, _) = vault_state_pda(&admin.pubkey());
+        let (vault_token_account, _) = vault_token_pda(&vault_state);
+
+        //create atas
+        let user_token_ata = create_ata(&mut svm, &admin, &user.pubkey(), &accepted_mint);
+        let admin_token_ata = create_ata(&mut svm, &admin, &admin.pubkey(), &accepted_mint);
+
+        //mint 10,000 tokrn to user
+        mint_to(&mut svm, &admin, &accepted_mint, &user_token_ata, 10_000);
+
+        TestContext {
+            svm,
+            admin,
+            user,
+            accepted_mint,
+            receipt_mint_kp,
+            vault_state,
+            vault_token_account,
+            user_token_ata,
+            user_receipt_ata: Pubkey::default(), //set after initialize
+            admin_token_ata,
+        }
+    }
+
+    //call initialize and set user_receipt_ata
+    fn initialize(&mut self, fee_bps: u16){
+        let ix = Instruction {
+            program_id: program_id(),
+            accounts: spl_vault_anchor::accounts::Initialize {
+                admin: self.admin.pubkey(),
+                accepted_mint: self.accepted_mint,
+                receipt_mint: self.receipt_mint_kp.pubkey(),
+                vault_state: self.vault_state,
+                vault_token_account: self.vault_token_account,
+                token_program: spl_token::id(),
+                system_program: system_program::ID,
+                rent: solana_sdk::sysvar::rent::id(),
+            }
+            .to_account_metas(None),
+            data: spl_vault_anchor::instruction::Initialize{fee_bps}.data(),
+        };
+
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&self.admin.pubkey()),
+            &[&self.admin, &self.receipt_mint_kp],
+            self.svm.latest_blockhash(),
+        );
+        self.svm.send_transaction(tx).unwrap();
+
+        //create user receip ata
+        self.user_receipt_ata = create_ata(
+            &mut self.svm,
+            &self.admin,
+            &self.user.pubkey(),
+            &self.receipt_mint_kp.pubkey(),
+        );
+    }
+}
