@@ -219,4 +219,31 @@ impl TestContext {
         );
         self.svm.send_transaction(tx).unwrap();
     }
+
+    fn request_withdrawal(&mut self, receipt_amount: u64) -> Pubkey {
+        let (ticket, _) = withdrawal_ticket_pda(&self.user.pubkey(), &self.vault_state);
+        let ix = Instruction {
+            program_id: program_id(),
+            accounts: spl_vault_anchor::accounts::RequestWithdrawal {
+                user: self.user.pubkey(),
+                vault_state: self.vault_state,
+                receipt_mint: self.receipt_mint_kp.pubkey(),
+                user_receipt_account: self.user_receipt_ata,
+                withdrawal_ticket: ticket,
+                clock: solana_sdk::sysvar::clock::id(),
+                token_program: spl_token::id(),
+                system_program: system_program::ID,
+            }
+            .to_account_metas(None),
+            data: spl_vault_anchor::instruction::RequestWithdrawal { receipt_amount }.data(),
+        };
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&self.user.pubkey()),
+            &[&self.user],
+            self.svm.latest_blockhash(),
+        );
+        self.svm.send_transaction(tx).unwrap();
+        ticket
+    }
 }
