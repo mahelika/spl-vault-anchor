@@ -273,3 +273,138 @@ impl TestContext {
         self.svm.send_transaction(tx).map(|_| ())
     }
 }
+
+// tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_initialize_vault() {
+        let mut ctx = TestContext::new();
+        ctx.initialize(50); // 0.5% fee
+
+        let vault_data = ctx.svm.get_account(&ctx.vault_state).unwrap().data;
+        let vault: spl_vault_anchor::state::VaultState =
+            AnchorDeserialize::deserialize(&mut &vault_data[8..]).unwrap();
+
+        assert_eq!(vault.admin, ctx.admin.pubkey());
+        assert_eq!(vault.total_deposited, 0);
+        assert_eq!(vault.fee_bps, 50);
+        assert!(!vault.is_paused);
+        println!("✅ Vault initialized correctly");
+    }
+
+    #[test]
+    fn test_deposit_mints_receipts() {
+        let mut ctx = TestContext::new();
+        ctx.initialize(50);
+        ctx.deposit(1_000);
+
+        assert_eq!(token_balance(&ctx.svm, &ctx.vault_token_account), 1_000);
+        assert_eq!(token_balance(&ctx.svm, &ctx.user_receipt_ata), 1_000);
+
+        let vault_data = ctx.svm.get_account(&ctx.vault_state).unwrap().data;
+        let vault: spl_vault_anchor::state::VaultState =
+            AnchorDeserialize::deserialize(&mut &vault_data[8..]).unwrap();
+        assert_eq!(vault.total_deposited, 1_000);
+        println!("✅ Deposit minted receipts 1:1");
+    }
+
+    #[test]
+    fn test_withdrawal_request_burns_and_creates_ticket() {
+        let mut ctx = TestContext::new();
+        ctx.initialize(50);
+        ctx.deposit(1_000);
+        ctx.request_withdrawal(1_000);
+
+        // receipts burned
+        assert_eq!(token_balance(&ctx.svm, &ctx.user_receipt_ata), 0);
+
+        // ticket exists
+        let (ticket_pda, _) = withdrawal_ticket_pda(&ctx.user.pubkey(), &ctx.vault_state);
+        let ticket_data = ctx.svm.get_account(&ticket_pda).unwrap().data;
+        let ticket: spl_vault_anchor::state::WithdrawalTicket =
+            AnchorDeserialize::deserialize(&mut &ticket_data[8..]).unwrap();
+        assert_eq!(ticket.receipt_amount, 1_000);
+        assert_eq!(ticket.user, ctx.user.pubkey());
+        println!("✅ Withdrawal ticket created, receipts burned");
+    }
+
+    #[test]
+    fn test_claim_before_cooldown_fails() {
+        let mut ctx = TestContext::new();
+        ctx.initialize(50);
+        ctx.deposit(1_000);
+        ctx.request_withdrawal(1_000);
+
+        // try to claim immediately — must fail
+        let result = ctx.claim();
+        assert!(result.is_err(), "Claim should fail before cooldown");
+        println!("✅ Claim correctly rejected before 24hr cooldown");
+    }
+
+    #[test]
+    fn test_claim_after_cooldown_succeeds_with_fee() {
+        let mut ctx = TestContext::new();
+        ctx.initialize(50); // 0.5% fee
+        ctx.deposit(1_000);
+        ctx.request_withdrawal(1_000);
+
+        // advance clock past 24hrs
+        ctx.svm.warp_to_unix(
+            ctx.svm.get_sysvar::<solana_sdk::sysvar::clock::Clock>().unix_timestamp
+                + spl_vault_anchor::state::WithdrawalTicket::COOLDOWN_SECONDS
+                + 1,
+        );
+
+        ctx.claim().unwrap();
+
+        // fee = 1000 * 50 / 10000 = 5
+        // user receives 995, admin receives 5
+        assert_eq!(token_balance(&ctx.svm, &ctx.user_token_ata), 9_000 + 995); // started with 10_000, deposited 1_000
+        assert_eq!(token_balance(&ctx.svm, &ctx.admin_token_ata), 5);
+        println!("✅ Claim succeeded after cooldown with correct fee");
+    }
+
+    #[test]
+    fn test_attacker_cannot_claim_other_users_ticket() {
+        let mut ctx = TestContext::new();
+        ctx.initialize(50);
+        ctx.deposit(1_000);
+        ctx.request_withdrawal(1_000);
+
+        // attacker tries to derive user's ticket — gets wrong PDA
+        let attacker = Keypair::new();
+        ctx.svm.airdrop(&attacker.pubkey(), 10_000_000_000).unwrap();
+
+        let (real_ticket, _) = withdrawal_ticket_pda(&ctx.user.pubkey(), &ctx.vault_state);
+
+        // attacker passes real ticket address but signs with their own key
+        // constraint = withdrawal_ticket.user == user.key() will reject this
+        let ix = Instruction {
+            program_id: program_id(),
+            accounts: spl_vault_anchor::accounts::Claim {
+                user: attacker.pubkey(), // attacker as user
+                vault_state: ctx.vault_state,
+                vault_token_account: ctx.vault_token_account,
+                user_token_account: ctx.user_token_ata,
+                admin_token_account: ctx.admin_token_ata,
+                withdrawal_ticket: real_ticket, // real ticket
+                clock: solana_sdk::sysvar::clock::id(),
+                token_program: spl_token::id(),
+            }
+            .to_account_metas(None),
+            data: spl_vault_anchor::instruction::Claim {}.data(),
+        };
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&attacker.pubkey()),
+            &[&attacker],
+            ctx.svm.latest_blockhash(),
+        );
+        let result = ctx.svm.send_transaction(tx);
+        assert!(result.is_err(), "Attacker should not be able to claim user's ticket");
+        println!("✅ Attacker correctly rejected from stealing withdrawal");
+    }
+}
