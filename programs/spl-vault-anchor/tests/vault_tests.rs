@@ -246,4 +246,30 @@ impl TestContext {
         self.svm.send_transaction(tx).unwrap();
         ticket
     }
+
+    fn claim(&mut self) -> Result<(), litesvm::error::LiteSVMError> {
+        let (ticket, _) = withdrawal_ticket_pda(&self.user.pubkey(), &self.vault_state);
+        let ix = Instruction {
+            program_id: program_id(),
+            accounts: spl_vault_anchor::accounts::Claim {
+                user: self.user.pubkey(),
+                vault_state: self.vault_state,
+                vault_token_account: self.vault_token_account,
+                user_token_account: self.user_token_ata,
+                admin_token_account: self.admin_token_ata,
+                withdrawal_ticket: ticket,
+                clock: solana_sdk::sysvar::clock::id(),
+                token_program: spl_token::id(),
+            }
+            .to_account_metas(None),
+            data: spl_vault_anchor::instruction::Claim {}.data(),
+        };
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&self.user.pubkey()),
+            &[&self.user],
+            self.svm.latest_blockhash(),
+        );
+        self.svm.send_transaction(tx).map(|_| ())
+    }
 }
