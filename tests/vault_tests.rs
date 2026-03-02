@@ -1,26 +1,27 @@
-use anchor_lang::{prelude::Pubkey, system_program, AnchorDeserialize, InstructionData, ToAccountMetas};
+use anchor_lang::{
+    prelude::Pubkey, system_program, AnchorDeserialize, InstructionData, ToAccountMetas,
+};
 use litesvm::LiteSVM;
 use solana_sdk::{
     instruction::Instruction,
+    program_pack::Pack,
     signature::{Keypair, Signer},
     transaction::Transaction,
-    program_pack::Pack,
 };
-use spl_token::state::{Account as TokenAccount, Mint};
 use spl_associated_token_account::get_associated_token_address;
-
+use spl_token::state::{Account as TokenAccount, Mint};
 
 // helpers
 
-fn program_id()-> Pubkey {
+fn program_id() -> Pubkey {
     spl_vault_anchor::ID
 }
 
-fn vault_state_pda(admin: &Pubkey) -> (Pubkey, u8){
+fn vault_state_pda(admin: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[b"vault_state", admin.as_ref()], &program_id())
 }
 
-fn vault_token_pda(vault_state: &Pubkey) -> (Pubkey, u8){
+fn vault_token_pda(vault_state: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[b"vault_token", vault_state.as_ref()], &program_id())
 }
 
@@ -49,7 +50,8 @@ fn create_mint(svm: &mut LiteSVM, payer: &Keypair, decimals: u8) -> Pubkey {
         &payer.pubkey(),
         None,
         decimals,
-    ).unwrap();
+    )
+    .unwrap();
 
     let tx = Transaction::new_signed_with_payer(
         &[create_ix, init_ix],
@@ -84,14 +86,9 @@ fn create_ata(svm: &mut LiteSVM, payer: &Keypair, owner: &Pubkey, mint: &Pubkey)
 
 //mint tokens to a token acc
 fn mint_to(svm: &mut LiteSVM, payer: &Keypair, mint: &Pubkey, dest: &Pubkey, amount: u64) {
-    let ix = spl_token::instruction::mint_to(
-        &spl_token::id(),
-        mint,
-        dest,
-        &payer.pubkey(),
-        &[],
-        amount,
-    ).unwrap();
+    let ix =
+        spl_token::instruction::mint_to(&spl_token::id(), mint, dest, &payer.pubkey(), &[], amount)
+            .unwrap();
 
     let tx = Transaction::new_signed_with_payer(
         &[ix],
@@ -126,7 +123,8 @@ struct TestContext {
 impl TestContext {
     fn new() -> Self {
         let mut svm = LiteSVM::new();
-        svm.add_program_from_file(program_id(), "../../target/deploy/spl_vault_anchor.so").unwrap();
+        svm.add_program_from_file(program_id(), "../../target/deploy/spl_vault_anchor.so")
+            .unwrap();
 
         let admin = Keypair::new();
         let user = Keypair::new();
@@ -165,7 +163,7 @@ impl TestContext {
     }
 
     //call initialize and set user_receipt_ata
-    fn initialize(&mut self, fee_bps: u16){
+    fn initialize(&mut self, fee_bps: u16) {
         let ix = Instruction {
             program_id: program_id(),
             accounts: spl_vault_anchor::accounts::Initialize {
@@ -179,7 +177,7 @@ impl TestContext {
                 rent: solana_sdk::sysvar::rent::id(),
             }
             .to_account_metas(None),
-            data: spl_vault_anchor::instruction::Initialize{fee_bps}.data(),
+            data: spl_vault_anchor::instruction::Initialize { fee_bps }.data(),
         };
 
         let tx = Transaction::new_signed_with_payer(
@@ -191,11 +189,10 @@ impl TestContext {
         self.svm.send_transaction(tx).unwrap();
 
         //create user receip ata
-        self.user_receipt_ata = create_ata(
-            &mut self.svm,
-            &self.admin,
-            &self.user.pubkey(),
-            &self.receipt_mint_kp.pubkey(),
-        );
+        let admin_clone = Keypair::from_bytes(&self.admin.to_bytes()).unwrap();
+        let receipt_mint = self.receipt_mint_kp.pubkey();
+        let user = self.user.pubkey();
+
+        self.user_receipt_ata = create_ata(&mut self.svm, &admin_clone, &user, &receipt_mint);
     }
 }
